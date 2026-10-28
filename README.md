@@ -52,26 +52,30 @@ Availability and configuration depend on the client.
 
 Security
 
-- Authenticate users before accessing memories.
-- Isolate memory data between users.
-- Require confirmation for destructive operations.
-- Support secure remote connections.
+- The local MCP server authenticates to the backend with its configured Bearer token.
+- The current backend uses one shared token and does not isolate multiple users.
+- The delete tool instructs the assistant to confirm before invoking it.
+- Remote transport is not implemented.
 
 Roadmap
 
-- [ ] Implement MCP server
-- [ ] Connect existing Memex backend
-- [ ] Implement memory tools
-- [ ] Support local MCP clients
+- [x] Implement MCP server
+- [x] Connect Memex backend
+- [x] Implement memory tools
+- [x] Support local MCP clients
 - [ ] Add remote HTTP transport
-- [ ] Implement authentication
+- [x] Authenticate to backend
 - [ ] Test Claude integration
 - [ ] Test ChatGPT integration
 - [ ] Package and publish integrations
 
 Status
 
-Planning — implementation pending.
+Initial local stdio integration implemented. Remote transport and per-user isolation remain future work.
+
+Developer documentation
+
+See [the developer guide](dev-docs/README.md) for the implementation boundary, current backend capabilities, development sequence, and security considerations. These documents distinguish existing behavior from proposed MCP functionality.
 
 Related Projects
 
