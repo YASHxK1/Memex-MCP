@@ -1,17 +1,14 @@
 """Small authenticated HTTP client for the Memex backend API."""
 
-import os
 from typing import Any
 
 import httpx
 
+from .config import api_token, backend_url
+
 
 def backend_settings() -> tuple[str, str]:
-    base_url = os.environ.get("MEMEX_BACKEND_URL", "http://127.0.0.1:8000").rstrip("/")
-    token = os.environ.get("MEMEX_API_TOKEN")
-    if not token:
-        raise RuntimeError("MEMEX_API_TOKEN must be set")
-    return base_url, token
+    return backend_url(), api_token()
 
 
 async def request(method: str, path: str, *, json: dict[str, Any] | None = None,
@@ -26,4 +23,6 @@ async def request(method: str, path: str, *, json: dict[str, Any] | None = None,
             params=params,
         )
         response.raise_for_status()
+        if not response.content:
+            return None
         return response.json()

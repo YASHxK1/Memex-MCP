@@ -1,15 +1,40 @@
 # Memex-MCP developer guide
 
-Memex-MCP is a local stdio MCP server. It forwards the five memory tools to an authenticated Memex Backend API; it does not store memory data itself.
+Memex-MCP is an MCP server that forwards five memory tools to an authenticated Memex Backend API. It does not store memory data itself.
 
 ## Architecture
 
 ```text
-MCP client --stdio--> Memex-MCP --HTTP + Bearer token--> Memex Backend --> Qdrant
+Local MCP client ──stdio────────────────────────┐
+                                                ▼
+                                          memex_mcp.server
+                                          (shared tools)
+                                                │
+Remote MCP client ──HTTPS──> proxy ──HTTP──> /mcp
+                                                │
+                                                ▼
+                                          memex_mcp.client
+                                                │ HTTP + Bearer
+                                                ▼
+                                          Memex Backend
+                                                │
+                                                ▼
+                                              Qdrant
 ```
 
-The backend keeps memory records distinct from indexed documents and provides the semantic search and CRUD routes. The initial configuration uses the backend's shared single-user token; it does not provide per-user isolation or remote MCP transport.
+The same tool functions serve both transports. Transport selection and CLI parsing live in `server.py`, inbound remote authentication lives in `auth.py`, backend HTTP communication lives in `client.py`, and environment/CLI configuration lives in `config.py`.
+
+The backend keeps memory records distinct from indexed documents and provides the semantic search and CRUD routes. The initial configuration uses the backend's shared single-user token; it does not provide per-user isolation.
+
+## Modules
+
+| Module | Responsibility |
+| --- | --- |
+| `memex_mcp/server.py` | Tool definitions, FastMCP factory, Streamable HTTP app, CLI entry point |
+| `memex_mcp/client.py` | Authenticated HTTP requests to the Memex Backend |
+| `memex_mcp/auth.py` | Bearer-token middleware for remote MCP requests |
+| `memex_mcp/config.py` | Environment variables and command-line configuration |
 
 ## Setup
 
-See [development](development.md) for installation, environment variables, running tests, and MCP client configuration. The adjacent `Memex-Backend/dev-docs/api.md` documents the memory endpoints.
+See [development](development.md) for installation, environment variables, running both transports, tests, deployment, and MCP client configuration. The adjacent `Memex-Backend/dev-docs/api.md` documents the memory endpoints.

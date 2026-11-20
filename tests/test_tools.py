@@ -38,9 +38,13 @@ async def test_backend_errors_propagate_as_tool_errors():
 @pytest.mark.parametrize("call", [
     lambda: server.memory_search(" "),
     lambda: server.memory_search("x", top_k=0),
+    lambda: server.memory_search("x", top_k=101),
+    lambda: server.memory_search("x", min_score=-0.1),
     lambda: server.memory_search("x", min_score=1.1),
     lambda: server.memory_add(" "),
+    lambda: server.memory_update("00000000-0000-0000-0000-000000000001", " "),
     lambda: server.memory_get("not-a-uuid"),
+    lambda: server.memory_delete("not-a-uuid"),
 ])
 async def test_invalid_tool_arguments_fail_before_backend_call(call):
     with patch("memex_mcp.server.request", new=AsyncMock()) as backend:
