@@ -15,7 +15,7 @@ Local client ──stdio──────────────────�
                                               ▼
                                         Memex-MCP
                                               │
-Remote client ──HTTPS──> reverse proxy ──HTTP──┤  (Streamable HTTP at /mcp)
+Remote client ──HTTPS──> reverse proxy ──HTTP─┤  (Streamable HTTP at /mcp)
                                               │
                                               └──HTTP + Bearer token──> Memex Backend ──> Memory storage
 ```
