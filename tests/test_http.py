@@ -136,7 +136,7 @@ async def test_valid_token_initializes_remote_transport(http_client):
         assert await _initialize(client)
 
 
-async def test_remote_transport_exposes_the_five_tools(http_client):
+async def test_remote_transport_exposes_the_eight_tools(http_client):
     async with http_client as client:
         session_id = await _initialize(client)
         response = await client.post("/mcp", headers=_headers(session_id=session_id), json={
@@ -145,7 +145,8 @@ async def test_remote_transport_exposes_the_five_tools(http_client):
         assert response.status_code == 200
         names = {tool["name"] for tool in _message(response)["result"]["tools"]}
         assert names == {
-            "memory_search", "memory_get", "memory_add", "memory_update", "memory_delete",
+            "memory_search", "document_search", "document_add", "document_delete",
+            "memory_get", "memory_add", "memory_update", "memory_delete",
         }
 
 
@@ -166,6 +167,78 @@ async def test_tool_invocation_over_http_forwards_to_backend(http_client, monkey
         "POST",
         "/v1/memories/search",
         json={"query": "topic", "top_k": 3, "min_score": 0.2},
+    )
+
+
+async def test_document_search_over_http_forwards_to_search_endpoint(http_client, monkeypatch):
+    response = {
+        "results": [
+            {
+                "score": 0.81,
+                "path": "notes/design.md",
+                "heading": "Indexing",
+                "chunk_index": 0,
+                "text": "The system ...",
+            }
+        ]
+    }
+    backend = AsyncMock(return_value=response)
+    monkeypatch.setattr(server, "request", backend)
+
+    async with http_client as client:
+        session_id = await _initialize(client)
+        payload = await _call_tool(client, session_id, "document_search", {
+            "query": "indexing",
+        })
+
+    assert payload["result"]["isError"] is False
+    assert json.loads(payload["result"]["content"][0]["text"]) == response
+    backend.assert_awaited_once_with(
+        "POST",
+        "/v1/search",
+        json={"query": "indexing", "top_k": 5, "min_score": 0.0},
+    )
+
+
+async def test_document_add_over_http_forwards_to_documents_endpoint(http_client, monkeypatch):
+    response = {"status": "indexed", "chunks": 2}
+    backend = AsyncMock(return_value=response)
+    monkeypatch.setattr(server, "request", backend)
+
+    async with http_client as client:
+        session_id = await _initialize(client)
+        payload = await _call_tool(client, session_id, "document_add", {
+            "path": "notes/design.md",
+            "content": "# Design",
+            "hash": "sha256:abc",
+        })
+
+    assert payload["result"]["isError"] is False
+    assert json.loads(payload["result"]["content"][0]["text"]) == response
+    backend.assert_awaited_once_with(
+        "POST",
+        "/v1/documents",
+        json={"path": "notes/design.md", "content": "# Design", "hash": "sha256:abc"},
+    )
+
+
+async def test_document_delete_over_http_forwards_to_documents_endpoint(http_client, monkeypatch):
+    response = {"status": "deleted"}
+    backend = AsyncMock(return_value=response)
+    monkeypatch.setattr(server, "request", backend)
+
+    async with http_client as client:
+        session_id = await _initialize(client)
+        payload = await _call_tool(client, session_id, "document_delete", {
+            "path": "notes/design.md",
+        })
+
+    assert payload["result"]["isError"] is False
+    assert json.loads(payload["result"]["content"][0]["text"]) == response
+    backend.assert_awaited_once_with(
+        "DELETE",
+        "/v1/documents",
+        params={"path": "notes/design.md"},
     )
 
 

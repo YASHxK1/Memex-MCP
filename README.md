@@ -2,11 +2,11 @@
 
 Persistent memory for AI assistants.
 
-Memex MCP connects the Memex memory system to AI assistants using the Model Context Protocol (MCP). It supports both local **stdio** clients and remote **Streamable HTTP** clients, using the same five memory tools.
+Memex MCP connects the Memex memory system to AI assistants using the Model Context Protocol (MCP). It supports both local **stdio** clients and remote **Streamable HTTP** clients, using the same memory tools and document search tool.
 
 ## Overview
 
-Memex MCP lets AI assistants search, retrieve, create, update, and delete memories across conversations. It integrates with the existing Memex Backend rather than implementing a separate memory database.
+Memex MCP lets AI assistants search, retrieve, create, update, and delete memories across conversations, and search indexed document chunks. It integrates with the existing Memex Backend rather than implementing a separate memory database or search engine.
 
 ## Architecture
 
@@ -17,7 +17,7 @@ Local client ──stdio──────────────────�
                                               │
 Remote client ──HTTPS──> reverse proxy ──HTTP─┤  (Streamable HTTP at /mcp)
                                               │
-                                              └──HTTP + Bearer token──> Memex Backend ──> Memory storage
+                                              └──HTTP + Bearer token──> Memex Backend ──> Memory and document storage
 ```
 
 - `memex_mcp/server.py` owns the MCP tools, transport selection, and CLI.
@@ -30,6 +30,9 @@ Remote client ──HTTPS──> reverse proxy ──HTTP─┤  (Streamable HTT
 
 - Persistent memory across conversations
 - Semantic memory search
+- Semantic document chunk search
+- Document indexing and replacement
+- Document deletion
 - Memory creation and retrieval
 - Memory updates and deletion
 - Shared tools over local stdio and remote Streamable HTTP
@@ -39,11 +42,42 @@ Remote client ──HTTPS──> reverse proxy ──HTTP─┤  (Streamable HTT
 
 | Tool | Description |
 | --- | --- |
-| `memory_search` | Search memories |
+| `memory_search` | Search saved memories |
 | `memory_get` | Retrieve a memory |
 | `memory_add` | Create a memory |
 | `memory_update` | Update a memory |
 | `memory_delete` | Delete a memory |
+| `document_search` | Search indexed document chunks |
+| `document_add` | Index or replace a document |
+| `document_delete` | Delete a document's indexed chunks |
+
+### Memory search vs. document search
+
+`memory_search` searches standalone memory records and calls the backend's `/v1/memories/search` endpoint. `document_search` searches chunks of documents that were previously indexed through the backend's `/v1/documents` endpoint and calls `/v1/search`. The two record types are stored and searched separately; one tool does not fall back to the other.
+
+`document_search` takes:
+
+| Parameter | Default | Constraints |
+| --- | --- | --- |
+| `query` | Required | Non-empty string |
+| `top_k` | `5` | Integer from 1 to 100 |
+| `min_score` | `0.0` | Number from 0.0 to 1.0 |
+
+Results include `score`, source `path`, `heading` (or `null`), `chunk_index`, and `text`. An empty result list means no indexed chunks met the query and score threshold; it is not an error. Document search returns results only for documents that have already been indexed in the Memex Backend.
+
+### Document management
+
+`document_add` indexes or replaces a document and takes:
+
+| Parameter | Constraints |
+| --- | --- |
+| `path` | Required, non-empty; identifies the document and is used for replacement and deletion |
+| `content` | Required string; may be empty, which produces zero chunks |
+| `hash` | Required, non-empty; caller-supplied content version |
+
+The backend trusts the supplied hash. If the path already has the same hash, it returns `{"status": "unchanged"}` without re-indexing; supply a new hash whenever content changes. A successful new index returns `{"status": "indexed", "chunks": N}`. Indexed documents become searchable with `document_search`.
+
+`document_delete(path)` deletes all indexed chunks for the exact path and returns `{"status": "deleted"}`. Deleting an unknown path is successful and idempotent. Deletion affects the indexed document only; confirm with the user before calling.
 
 ## Configuration
 
@@ -185,6 +219,7 @@ python -m pytest
 - [x] Implement MCP server
 - [x] Connect Memex backend
 - [x] Implement memory tools
+- [x] Add document search tool
 - [x] Support local MCP clients
 - [x] Add remote Streamable HTTP transport
 - [x] Authenticate remote MCP requests

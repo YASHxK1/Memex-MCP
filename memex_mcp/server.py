@@ -34,6 +34,41 @@ async def memory_search(query: str, top_k: int = 5, min_score: float = 0.0) -> d
     })
 
 
+async def document_search(query: str, top_k: int = 5, min_score: float = 0.0) -> dict:
+    """Search indexed document chunks in Memex."""
+    if not query.strip():
+        raise ValueError("query must not be empty")
+    if not 1 <= top_k <= 100:
+        raise ValueError("top_k must be between 1 and 100")
+    if not 0.0 <= min_score <= 1.0:
+        raise ValueError("min_score must be between 0 and 1")
+    return await request("POST", "/v1/search", json={
+        "query": query,
+        "top_k": top_k,
+        "min_score": min_score,
+    })
+
+
+async def document_add(path: str, content: str, hash: str) -> dict:
+    """Index or replace a document in Memex."""
+    if not path.strip():
+        raise ValueError("path must not be empty")
+    if not hash.strip():
+        raise ValueError("hash must not be empty")
+    return await request("POST", "/v1/documents", json={
+        "path": path,
+        "content": content,
+        "hash": hash,
+    })
+
+
+async def document_delete(path: str) -> dict:
+    """Delete all indexed chunks for a document path; confirm with the user before calling."""
+    if not path.strip():
+        raise ValueError("path must not be empty")
+    return await request("DELETE", "/v1/documents", params={"path": path})
+
+
 async def memory_get(memory_id: str) -> dict:
     """Retrieve one saved memory by its ID."""
     return await request("GET", _memory_path(memory_id))
@@ -60,9 +95,12 @@ async def memory_delete(memory_id: str) -> dict:
 
 def create_server(host: str = DEFAULT_HOST, port: int = DEFAULT_PORT,
                   transport_security: TransportSecuritySettings | None = None) -> FastMCP:
-    """Build a Memex MCP server with the five memory tools registered once."""
+    """Build a Memex MCP server with the memory and document tools registered once."""
     server = FastMCP("Memex", host=host, port=port, transport_security=transport_security)
     server.add_tool(memory_search)
+    server.add_tool(document_search)
+    server.add_tool(document_add)
+    server.add_tool(document_delete)
     server.add_tool(memory_get)
     server.add_tool(memory_add)
     server.add_tool(memory_update)

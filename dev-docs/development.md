@@ -139,11 +139,18 @@ export MCP_ALLOWED_ORIGINS='https://memex-mcp.example.com'
 
 The same implementations are registered on both transports:
 
-- `memory_search(query, top_k=5, min_score=0.0)` searches saved memories.
+- `memory_search(query, top_k=5, min_score=0.0)` searches saved memories through `/v1/memories/search`.
 - `memory_get(memory_id)` retrieves one memory.
 - `memory_add(text)` creates a memory and returns its ID.
 - `memory_update(memory_id, text)` replaces a memory's text.
 - `memory_delete(memory_id)` deletes a memory.
+- `document_search(query, top_k=5, min_score=0.0)` searches indexed document chunks through `/v1/search`.
+- `document_add(path, content, hash)` indexes or replaces a document through `POST /v1/documents`.
+- `document_delete(path)` deletes a document's indexed chunks through `DELETE /v1/documents`.
+
+`document_add` requires a non-empty `path` and `hash`; `content` may be empty and then produces zero chunks. The caller supplies the hash, and the backend returns `unchanged` when it matches the stored hash for that path. `document_delete` requires a non-empty path and is idempotent for unknown paths.
+
+`memory_search` and `document_search` are separate operations over separate backend record types. Document search requires documents to have been indexed in the backend; it does not search memories, and memory search does not search document chunks. Document results include `score`, `path`, `heading`, `chunk_index`, and `text`, and an empty `results` list is a normal response.
 
 The MCP server passes backend errors through as tool errors. Memory IDs are UUIDs returned by `memory_add`.
 
